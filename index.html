@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi habitación 3D</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Mi habitación</h1>
+      <p class="subtitle">Modelo a escala de 250 × 300 × 260 cm</p>
+    </div>
+    <button id="theme-toggle" class="btn" aria-label="Activar modo oscuro" aria-pressed="false">
+      <span id="theme-icon" aria-hidden="true">☾</span>
+      <span id="theme-label">Modo oscuro</span>
+    </button>
+  </header>
+
+  <main>
+    <section class="scene-card">
+      <div class="toolbar">
+        <div class="segmented" role="group" aria-label="Punto de vista">
+          <button id="view3d" type="button">Perspectiva</button>
+          <button id="viewTop" type="button">Vista superior</button>
+        </div>
+        <div class="toggles">
+          <button id="door-toggle" class="btn" type="button" aria-pressed="false" title="Abrir o cerrar la puerta">Abrir puerta</button>
+          <button id="chair-mode" class="btn" type="button" aria-pressed="false" aria-label="Activar movimiento preciso del mueble seleccionado" title="Mover el mueble con las flechas">Mover mueble</button>
+          <button id="reset-layout" class="btn" type="button" title="Restaurar la distribución inicial">Restablecer</button>
+          <button id="toggleRoof" class="btn" type="button" aria-pressed="false">Techo</button>
+          <button id="toggleLabels" class="btn" type="button" aria-pressed="true">Etiquetas</button>
+          <button id="measure-btn" class="btn" type="button" aria-pressed="false">Medidas</button>
+          <button id="fullscreen-btn" class="btn icon" type="button" aria-label="Ver en pantalla completa" title="Pantalla completa">
+            <svg id="fullscreen-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="scene" aria-label="Modelo 3D interactivo de la habitación"></div>
+      <div class="scene-footer">
+        <span>Arrastrá para girar</span>
+        <span>Rueda para zoom, clic derecho para desplazar</span>
+        <span id="layout-status" role="status" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <aside>
+      <section class="panel">
+        <h2>Dimensiones</h2>
+        <div class="measure"><span>Largo</span><strong>300 <small>cm</small></strong></div>
+        <div class="measure"><span>Ancho</span><strong>250 <small>cm</small></strong></div>
+        <div class="measure"><span>Altura</span><strong>260 <small>cm</small></strong></div>
+        <div class="area"><span>Superficie del piso</span><strong>7,5 m²</strong></div>
+      </section>
+
+      <section class="panel">
+        <h2>Paredes</h2>
+        <ul class="paredes">
+          <li><span class="badge">A</span><span>Puerta y escritorio</span></li>
+          <li><span class="badge">B</span><span>Ventana</span></li>
+          <li><span class="badge">C</span><span>Placard y cabecera de la cama</span></li>
+          <li><span class="badge">D</span><span>Frente a la ventana</span></li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>Distancias de la silla</h2>
+        <div class="measure"><span>Al escritorio</span><strong id="chair-desk-gap">--</strong></div>
+        <div class="measure"><span>Al mueble más cercano</span><strong id="chair-nearest-gap">--</strong></div>
+      </section>
+
+      <section class="panel" aria-live="polite">
+        <h2>Elemento seleccionado</h2>
+        <div id="details"><p>Hacé clic en una pared o en un mueble para ver sus medidas.</p></div>
+      </section>
+    </aside>
+  </main>
+
+  <script>
+    const themeButton = document.querySelector('#theme-toggle');
+    const themeIcon = document.querySelector('#theme-icon');
+    const themeLabel = document.querySelector('#theme-label');
+
+    function aplicarTema(dark) {
+      document.body.classList.toggle('dark-mode', dark);
+      themeIcon.textContent = dark ? '☀' : '☾';
+      themeLabel.textContent = dark ? 'Modo claro' : 'Modo oscuro';
+      themeButton.setAttribute('aria-pressed', String(dark));
+      themeButton.setAttribute('aria-label', dark ? 'Activar modo claro' : 'Activar modo oscuro');
+      window.dispatchEvent(new CustomEvent('themechange', { detail: { dark } }));
+    }
+
+    let guardado = null;
+    try { guardado = localStorage.getItem('tema'); } catch (e) {}
+    aplicarTema(guardado
+      ? guardado === 'oscuro'
+      : window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    themeButton.addEventListener('click', () => {
+      const dark = !document.body.classList.contains('dark-mode');
+      aplicarTema(dark);
+      try { localStorage.setItem('tema', dark ? 'oscuro' : 'claro'); } catch (e) {}
+    });
+
+    const fullscreenBtn = document.querySelector('#fullscreen-btn');
+    const sceneCard = document.querySelector('.scene-card');
+    const fullscreenIcon = document.querySelector('#fullscreen-icon');
+    const iconoAmpliar = '<path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/>';
+    const iconoSalir = '<path d="M8 3v5H3M16 3v5h5M3 16h5v5M21 16h-5v5"/>';
+
+    fullscreenBtn.addEventListener('click', async () => {
+      try {
+        if (document.fullscreenElement === sceneCard) await document.exitFullscreen();
+        else await sceneCard.requestFullscreen();
+      } catch (error) {
+        console.error('No se pudo cambiar a pantalla completa:', error);
+      }
+    });
+    document.addEventListener('fullscreenchange', () => {
+      const activo = document.fullscreenElement === sceneCard;
+      fullscreenIcon.innerHTML = activo ? iconoSalir : iconoAmpliar;
+      const texto = activo ? 'Salir de pantalla completa' : 'Ver en pantalla completa';
+      fullscreenBtn.title = texto;
+      fullscreenBtn.setAttribute('aria-label', texto);
+    });
+  </script>
+  <script type="module" src="script.js"></script>
+</body>
+</html>
